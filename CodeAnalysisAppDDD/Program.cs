@@ -26,57 +26,23 @@ namespace CodeAnalysisAppDDD
                 Console.WriteLine("Start analyzing project: " + proj.Name + ", " + proj.Language);
                 Compilation compilation = proj.GetCompilationAsync().Result;
 
-                // Collect IAggregateRoot roots
                 foreach (var tree in compilation.SyntaxTrees)
                 {
                     var classes = tree.GetRoot().DescendantNodesAndSelf().OfType<ClassDeclarationSyntax>();
-                    //tree.GetRoot().DescendantNodesAndSelf().Where(x => x.IsKind(SyntaxKind.ClassDeclaration));
                     if (classes != null)
                     {
                         foreach (var c in classes)
                         {
-                            var classDec = (ClassDeclarationSyntax)c;
-                            var bases = classDec.BaseList;
-                            if (bases != null)
+                            // Collect IAggregateRoot roots
+                            var classDec = c as ClassDeclarationSyntax;
+                            if (classDec != null)
                             {
-                                foreach (var b in bases.Types)
-                                {
-                                    var nodeType = compilation.GetSemanticModel(tree).GetTypeInfo(b.Type);
-                                    string name = (nodeType.Type == null) ? "" : nodeType.Type.Name;
-                                    if (AGGREGATE_INTERFACE.Equals(name))
-                                    {
-                                        Console.WriteLine(classDec.Identifier.Text);
-                                    }
-                                }
+                                collectAggregatesRoots(classDec, compilation, tree);
                             }
 
                             // Collect references
                             SemanticModel model = compilation.GetSemanticModel(tree);
-                            var classSymbol = model.GetDeclaredSymbol(c);
-                            var referencesToClass = SymbolFinder.FindReferencesAsync(classSymbol, proj.Solution).Result;
-                            // get span from locations:
-                            foreach (var referenceToClass in referencesToClass)
-                            {
-                                var locations = referenceToClass.Locations;
-                                foreach (var loc in locations)
-                                {
-                                    var location = loc.Location;
-                                    var span = location.SourceSpan;
-                                    // find node:
-                                    var sourceTree = location.SourceTree;
-                                    var sourceNodes = sourceTree.GetRoot().DescendantNodes().Where(x => x.Span.IntersectsWith(span));
-                                    foreach (var node in sourceNodes)
-                                    {
-                                        var classDeclaration = node as ClassDeclarationSyntax;
-                                        if (classDeclaration != null)
-                                        {
-                                            var referenceTo = c.Identifier.Text;
-                                            var referenceFrom = classDeclaration.Identifier.Text;
-                                            Console.WriteLine(referenceFrom + " -> " + referenceTo);
-                                        }
-                                    }
-                                }
-                            }
+                            collectReferences(model, c, c.Identifier.Text, proj.Solution);
                         }
                     }
                 }
@@ -90,6 +56,51 @@ namespace CodeAnalysisAppDDD
             }
             
             Console.ReadLine();
+        }
+
+        static void collectAggregatesRoots(ClassDeclarationSyntax classDec, Compilation compilation, SyntaxTree tree)
+        {
+            var bases = classDec.BaseList;
+            if (bases != null)
+            {
+                foreach (var b in bases.Types)
+                {
+                    var nodeType = compilation.GetSemanticModel(tree).GetTypeInfo(b.Type);
+                    string name = (nodeType.Type == null) ? "" : nodeType.Type.Name;
+                    if (AGGREGATE_INTERFACE.Equals(name))
+                    {
+                        Console.WriteLine(classDec.Identifier.Text);
+                    }
+                }
+            }
+        }
+
+        static void collectReferences(SemanticModel model, SyntaxNode c, string className, Solution solution)
+        {
+            var classSymbol = model.GetDeclaredSymbol(c);
+            var referencesToClass = SymbolFinder.FindReferencesAsync(classSymbol, solution).Result;
+            // get span from locations:
+            foreach (var referenceToClass in referencesToClass)
+            {
+                var locations = referenceToClass.Locations;
+                foreach (var loc in locations)
+                {
+                    var location = loc.Location;
+                    var span = location.SourceSpan;
+                    // find node:
+                    var sourceTree = location.SourceTree;
+                    var sourceNodes = sourceTree.GetRoot().DescendantNodes().Where(x => x.Span.IntersectsWith(span));
+                    foreach (var node in sourceNodes)
+                    {
+                        var classDeclaration = node as ClassDeclarationSyntax;
+                        if (classDeclaration != null)
+                        {
+                            var referenceFrom = classDeclaration.Identifier.Text;
+                            Console.WriteLine(referenceFrom + " -> " + className);
+                        }
+                    }
+                }
+            }
         }
     }
 }
