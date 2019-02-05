@@ -24,8 +24,13 @@ namespace CodeAnalysisAppDDD
                 List<Project> projects = soln.Projects.ToList<Project>();
                 Project proj = projects[1];
                 Console.WriteLine("Start analyzing project: " + proj.Name + ", " + proj.Language);
+                Console.WriteLine();
                 Compilation compilation = proj.GetCompilationAsync().Result;
 
+                Digraph digraph = new Digraph();
+                pushVerticesClassesToDigraph(digraph, compilation.SyntaxTrees);
+
+                Console.WriteLine("Collect aggregate roots: ");
                 foreach (var tree in compilation.SyntaxTrees)
                 {
                     var classes = tree.GetRoot().DescendantNodesAndSelf().OfType<ClassDeclarationSyntax>();
@@ -37,15 +42,24 @@ namespace CodeAnalysisAppDDD
                             var classDec = c as ClassDeclarationSyntax;
                             if (classDec != null)
                             {
-                                collectAggregatesRoots(classDec, compilation, tree);
+                                collectAggregateRoots(classDec, compilation, tree);
                             }
 
                             // Collect references
                             SemanticModel model = compilation.GetSemanticModel(tree);
-                            collectReferences(model, c, c.Identifier.Text, proj.Solution);
+                            collectReferences(model, c, c.Identifier.Text, proj.Solution, digraph);
                         }
                     }
                 }
+
+                Console.WriteLine();
+                Console.WriteLine("Show relations between classes (digraph): ");
+                digraph.show();
+
+                Console.WriteLine();
+                Console.WriteLine("Show reversed digraph: ");
+                Digraph reversedDigraph = digraph.reverse();
+                reversedDigraph.show();
             }
             catch (ReflectionTypeLoadException ex)
             {
@@ -58,7 +72,7 @@ namespace CodeAnalysisAppDDD
             Console.ReadLine();
         }
 
-        static void collectAggregatesRoots(ClassDeclarationSyntax classDec, Compilation compilation, SyntaxTree tree)
+        static void collectAggregateRoots(ClassDeclarationSyntax classDec, Compilation compilation, SyntaxTree tree)
         {
             var bases = classDec.BaseList;
             if (bases != null)
@@ -75,7 +89,7 @@ namespace CodeAnalysisAppDDD
             }
         }
 
-        static void collectReferences(SemanticModel model, SyntaxNode c, string className, Solution solution)
+        static void collectReferences(SemanticModel model, SyntaxNode c, string className, Solution solution, Digraph digraph)
         {
             var classSymbol = model.GetDeclaredSymbol(c);
             var referencesToClass = SymbolFinder.FindReferencesAsync(classSymbol, solution).Result;
@@ -96,11 +110,28 @@ namespace CodeAnalysisAppDDD
                         if (classDeclaration != null)
                         {
                             var referenceFrom = classDeclaration.Identifier.Text;
-                            Console.WriteLine(referenceFrom + " -> " + className);
+                            digraph.addEdge(referenceFrom, className);
                         }
                     }
                 }
             }
+        }
+
+        static void pushVerticesClassesToDigraph(Digraph digraph, IEnumerable<SyntaxTree> trees)
+        {
+            foreach (var tree in trees)
+            {
+                var classes = tree.GetRoot().DescendantNodesAndSelf().OfType<ClassDeclarationSyntax>();
+                if (classes != null)
+                {
+                    foreach (var c in classes)
+                    {
+                        digraph.addVertex(c.Identifier.Text);
+                    }
+                 }
+            }
+
+          //digraph.show();
         }
     }
 }
