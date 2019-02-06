@@ -16,18 +16,18 @@ namespace CodeAnalysisAppDDD
 
         public struct Result
         {
-            public HashSet<string> aggregateRoots;
-            public Digraph digraph;
-            public Digraph reversedDigraph;
+            public Dictionary<string, HashSet<string>> aggregates;
+            public Digraph relationshipsD;
+            public Digraph reversedRelationshipsD;
         }
 
         Result result = new Result();
 
         public void startCollecting()
         {
-            result.aggregateRoots = new HashSet<string>();
-            result.digraph = new Digraph();
-            result.reversedDigraph = new Digraph();
+            result.aggregates = new Dictionary<string, HashSet<string>>();
+            result.relationshipsD = new Digraph();
+            result.reversedRelationshipsD = new Digraph();
 
             try
             {
@@ -39,7 +39,7 @@ namespace CodeAnalysisAppDDD
                 Console.WriteLine();
                 Compilation compilation = proj.GetCompilationAsync().Result;
 
-                pushVerticesClassesToDigraph(result.digraph, compilation.SyntaxTrees);
+                pushVerticesClassesToDigraph(result.relationshipsD, compilation.SyntaxTrees);
 
                 foreach (var tree in compilation.SyntaxTrees)
                 {
@@ -52,17 +52,17 @@ namespace CodeAnalysisAppDDD
                             var classDec = c as ClassDeclarationSyntax;
                             if (classDec != null)
                             {
-                                collectAggregateRoots(classDec, compilation, tree);
+                                collectAggregates(classDec, compilation, tree);
                             }
 
                             // Collect references
                             SemanticModel model = compilation.GetSemanticModel(tree);
-                            collectReferences(model, c, c.Identifier.Text, proj.Solution, result.digraph);
+                            collectRelationships(model, c, c.Identifier.Text, proj.Solution, result.relationshipsD);
                         }
                     }
                 }
 
-                result.reversedDigraph = result.digraph.reverse();
+                result.reversedRelationshipsD = result.relationshipsD.reverse();
             }
             catch (ReflectionTypeLoadException ex)
             {
@@ -73,7 +73,7 @@ namespace CodeAnalysisAppDDD
             }
         }
 
-        void collectAggregateRoots(ClassDeclarationSyntax classDec, Compilation compilation, SyntaxTree tree)
+        void collectAggregates(ClassDeclarationSyntax classDec, Compilation compilation, SyntaxTree tree)
         {
             var bases = classDec.BaseList;
             if (bases != null)
@@ -85,13 +85,38 @@ namespace CodeAnalysisAppDDD
                     if (AGGREGATE_INTERFACE.Equals(name))
                     {
                         string className = classDec.Identifier.Text;
-                        result.aggregateRoots.Add(className);
+                        result.aggregates.Add(className, new HashSet<string>());
+                        var properties = classDec.DescendantNodes().OfType<PropertyDeclarationSyntax>();
+                        if (properties != null)
+                        {
+                            foreach (var prop in properties)
+                            {
+                                string propName = prop.Type.ToString();
+                                if (result.relationshipsD.containsV(propName))
+                                {
+                                    result.aggregates[className].Add(propName);
+                                }
+                            }
+                        }
+
+                        var fileds = classDec.DescendantNodes().OfType<FieldDeclarationSyntax>();
+                        if (fileds != null)
+                        {
+                            foreach (var field in fileds)
+                            {
+                                string fieldName = field.Declaration.Type.ToString();
+                                if (result.relationshipsD.containsV(fieldName))
+                                {
+                                    result.aggregates[className].Add(fieldName);
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        void collectReferences(SemanticModel model, SyntaxNode c, string className, Solution solution, Digraph digraph)
+        void collectRelationships(SemanticModel model, SyntaxNode c, string className, Solution solution, Digraph digraph)
         {
             var classSymbol = model.GetDeclaredSymbol(c);
             var referencesToClass = SymbolFinder.FindReferencesAsync(classSymbol, solution).Result;

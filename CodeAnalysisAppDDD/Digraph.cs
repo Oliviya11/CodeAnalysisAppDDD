@@ -30,7 +30,7 @@ namespace CodeAnalysisAppDDD
 
         public void addVertex(string v)
         {
-            if (!adj.ContainsKey(v))
+            if (!containsV(v))
             {
                 adj[v] = new HashSet<string>();
             }
@@ -38,11 +38,16 @@ namespace CodeAnalysisAppDDD
 
         public HashSet<string> getAdjForV(string v)
         {
-            if (!adj.ContainsKey(v))
+            if (!containsV(v))
             {
                 return null;
             }
             return adj[v];
+        }
+
+        public bool containsV(string v)
+        {
+            return adj.ContainsKey(v);
         }
 
         public Digraph reverse()
