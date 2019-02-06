@@ -50,6 +50,11 @@ namespace CodeAnalysisAppDDD
             return adj.ContainsKey(v);
         }
 
+        public HashSet<string> getVertices()
+        {
+            return new HashSet<string>(adj.Keys);
+        }
+
         public Digraph reverse()
         {
             Digraph reverseD = new Digraph();

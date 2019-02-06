@@ -43,5 +43,10 @@ namespace CodeAnalysisAppDDD
         {
             return marked.Contains(v);
         }
+
+        public HashSet<string> getMarked()
+        {
+            return new HashSet<string>(marked);
+        }
     }
 }

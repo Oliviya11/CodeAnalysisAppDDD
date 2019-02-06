@@ -17,17 +17,23 @@ namespace CodeAnalysisAppDDD
         public struct Result
         {
             public Dictionary<string, HashSet<string>> aggregates;
-            public Digraph relationshipsD;
-            public Digraph reversedRelationshipsD;
+            public Digraph relationsD;
+            public Digraph reversedRelationD;
         }
 
         Result result = new Result();
 
-        public void startCollecting()
+        public Collector()
+        {
+            startCollecting();
+            showResult();
+        }
+
+        void startCollecting()
         {
             result.aggregates = new Dictionary<string, HashSet<string>>();
-            result.relationshipsD = new Digraph();
-            result.reversedRelationshipsD = new Digraph();
+            result.relationsD = new Digraph();
+            result.reversedRelationD = new Digraph();
 
             try
             {
@@ -35,11 +41,13 @@ namespace CodeAnalysisAppDDD
                 Solution soln = ws.OpenSolutionAsync(TEST_SOLUTION).Result;
                 List<Project> projects = soln.Projects.ToList<Project>();
                 Project proj = projects[1];
-                Console.WriteLine("Start collecting info about project: " + proj.Name + ", " + proj.Language);
+                Console.WriteLine("Project: " + proj.Name + ", " + proj.Language);
+                Console.WriteLine();
+                Console.WriteLine("Collecting information...");
                 Console.WriteLine();
                 Compilation compilation = proj.GetCompilationAsync().Result;
 
-                pushVerticesClassesToDigraph(result.relationshipsD, compilation.SyntaxTrees);
+                pushVerticesClassesToDigraph(result.relationsD, compilation.SyntaxTrees);
 
                 foreach (var tree in compilation.SyntaxTrees)
                 {
@@ -57,12 +65,12 @@ namespace CodeAnalysisAppDDD
 
                             // Collect references
                             SemanticModel model = compilation.GetSemanticModel(tree);
-                            collectRelationships(model, c, c.Identifier.Text, proj.Solution, result.relationshipsD);
+                            collectRelationships(model, c, c.Identifier.Text, proj.Solution, result.relationsD);
                         }
                     }
                 }
 
-                result.reversedRelationshipsD = result.relationshipsD.reverse();
+                result.reversedRelationD = result.relationsD.reverse();
             }
             catch (ReflectionTypeLoadException ex)
             {
@@ -92,7 +100,7 @@ namespace CodeAnalysisAppDDD
                             foreach (var prop in properties)
                             {
                                 string propName = prop.Type.ToString();
-                                if (result.relationshipsD.containsV(propName))
+                                if (result.relationsD.containsV(propName))
                                 {
                                     result.aggregates[className].Add(propName);
                                 }
@@ -105,7 +113,7 @@ namespace CodeAnalysisAppDDD
                             foreach (var field in fileds)
                             {
                                 string fieldName = field.Declaration.Type.ToString();
-                                if (result.relationshipsD.containsV(fieldName))
+                                if (result.relationsD.containsV(fieldName))
                                 {
                                     result.aggregates[className].Add(fieldName);
                                 }
@@ -157,6 +165,35 @@ namespace CodeAnalysisAppDDD
                     }
                 }
             }
+        }
+
+        void showResult()
+        {
+            Console.WriteLine("Aggregates (roots and their nodes):");
+            Console.WriteLine();
+
+            foreach (KeyValuePair<string, HashSet<string>> pair in result.aggregates)
+            {
+                if (pair.Value.Count == 0)
+                {
+                    Console.WriteLine(pair.Key + ";");
+
+                }
+                else
+                {
+                    Console.WriteLine(pair.Key + ":");
+                    foreach (string val in pair.Value)
+                    {
+                        Console.WriteLine(val + ";");
+                    }
+                }
+                Console.WriteLine();
+            }
+
+            Console.WriteLine("Relations between classes (digraph):");
+            Console.WriteLine();
+            result.relationsD.show();
+            Console.WriteLine();
         }
 
         public Result getResult()
