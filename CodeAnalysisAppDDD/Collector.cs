@@ -11,8 +11,10 @@ namespace CodeAnalysisAppDDD
 {
     class Collector
     {
-        const string TEST_SOLUTION = @"D:\ProjectsOAAD\ConsoleApp1\ConsoleApp1.sln";
+        const string DEFAULT_TEST_SOLUTION = @"D:\ProjectsOAAD\ConsoleApp1\ConsoleApp1.sln";
         const string AGGREGATE_INTERFACE = "IAggregateRoot";
+        private string testSolution;
+        private int testProjectNumber;
 
         public struct Result
         {
@@ -23,8 +25,15 @@ namespace CodeAnalysisAppDDD
 
         Result result = new Result();
 
-        public Collector()
+        public Collector(string testSolution, int testProjectNumber)
         {
+            this.testSolution = testSolution;
+            if (string.IsNullOrEmpty(this.testSolution))
+            {
+                this.testSolution = DEFAULT_TEST_SOLUTION;
+            }
+            this.testProjectNumber = testProjectNumber;
+
             startCollecting();
             showResult();
         }
@@ -38,9 +47,10 @@ namespace CodeAnalysisAppDDD
             try
             {
                 MSBuildWorkspace ws = MSBuildWorkspace.Create();
-                Solution soln = ws.OpenSolutionAsync(TEST_SOLUTION).Result;
+                Solution soln = ws.OpenSolutionAsync(testSolution).Result;
                 List<Project> projects = soln.Projects.ToList<Project>();
-                Project proj = projects[1];
+                Project proj = projects[this.testProjectNumber];
+                Console.WriteLine();
                 Console.WriteLine("Project: " + proj.Name + ", " + proj.Language);
                 Console.WriteLine();
                 Console.WriteLine("Collecting information...");
