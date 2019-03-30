@@ -58,28 +58,8 @@ namespace CodeAnalysisAppDDD
                 Compilation compilation = proj.GetCompilationAsync().Result;
 
                 pushVerticesClassesToDigraph(result.relationsD, compilation.SyntaxTrees);
-
-                foreach (var tree in compilation.SyntaxTrees)
-                {
-                    var classes = tree.GetRoot().DescendantNodesAndSelf().OfType<ClassDeclarationSyntax>();
-                    if (classes != null)
-                    {
-                        foreach (var c in classes)
-                        {
-                            // Collect IAggregateRoot roots
-                            var classDec = c as ClassDeclarationSyntax;
-                            if (classDec != null)
-                            {
-                                collectAggregates(classDec, compilation, tree);
-                            }
-
-                            // Collect references
-                            SemanticModel model = compilation.GetSemanticModel(tree);
-                            collectRelationships(model, c, c.Identifier.Text, proj.Solution, result.relationsD);
-                        }
-                    }
-                }
-
+                collectAllAggregatesAndReferences(compilation, proj);
+                
                 result.reversedRelationD = result.relationsD.reverse();
             }
             catch (ReflectionTypeLoadException ex)
@@ -91,14 +71,39 @@ namespace CodeAnalysisAppDDD
             }
         }
 
-        void collectAggregates(ClassDeclarationSyntax classDec, Compilation compilation, SyntaxTree tree)
+        void collectAllAggregatesAndReferences(Compilation compilation, Project proj)
+        {
+            foreach (var tree in compilation.SyntaxTrees)
+            {
+                var classes = tree.GetRoot().DescendantNodesAndSelf().OfType<ClassDeclarationSyntax>();
+                if (classes != null)
+                {
+                    foreach (var c in classes)
+                    {
+                        SemanticModel model = compilation.GetSemanticModel(tree);
+
+                        // Collect IAggregateRoot roots
+                        var classDec = c as ClassDeclarationSyntax;
+                        if (classDec != null)
+                        {
+                            collectAggregates(classDec, compilation, tree, model);
+                        }
+
+                        // Collect references
+                        collectRelationships(model, c, c.Identifier.Text, proj.Solution, result.relationsD);
+                    }
+                }
+            }
+        }
+
+        void collectAggregates(ClassDeclarationSyntax classDec, Compilation compilation, SyntaxTree tree, SemanticModel model)
         {
             var bases = classDec.BaseList;
             if (bases != null)
             {
                 foreach (var b in bases.Types)
                 {
-                    var nodeType = compilation.GetSemanticModel(tree).GetTypeInfo(b.Type);
+                    var nodeType = model.GetTypeInfo(b.Type);
                     string name = (nodeType.Type == null) ? "" : nodeType.Type.Name;
                     if (AGGREGATE_INTERFACE.Equals(name))
                     {
@@ -203,6 +208,10 @@ namespace CodeAnalysisAppDDD
             Console.WriteLine("Relations between classes (digraph):");
             Console.WriteLine();
             result.relationsD.show();
+            Console.WriteLine();
+            Console.WriteLine("Relations between classes (reversed digraph):");
+            Console.WriteLine();
+            result.reversedRelationD.show();
             Console.WriteLine();
         }
 

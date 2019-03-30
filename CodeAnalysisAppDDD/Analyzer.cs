@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using static CodeAnalysisAppDDD.Collector;
 
 namespace CodeAnalysisAppDDD
@@ -27,10 +24,10 @@ namespace CodeAnalysisAppDDD
 
             if (checkAggregateSets())
             {
-                Console.WriteLine("2. Sets of agregate don't intersect and are reachable only from its root");
+                Console.WriteLine("2. Sets of agregates don't intersect and are reachable only from their roots");
             } else
             {
-                Console.WriteLine("2. Sets of agregate intersect or are reachable not only from its root");
+                Console.WriteLine("2. Sets of agregates intersect or are reachable not only from their roots");
             }
         }
 
@@ -73,26 +70,23 @@ namespace CodeAnalysisAppDDD
 
         bool checkAggregateSets()
         {
-            HashSet<string> vertices = result.relationsD.getVertices();
+            bool checkResult = true;
+
             foreach (KeyValuePair<string, HashSet<string>> pair in result.aggregates)
             {
-                HashSet<string> onlyRefs = new HashSet<string>(vertices);
-                HashSet<string> except = new HashSet<string>();
-                except.Add(pair.Key);
-                onlyRefs.ExceptWith(except);
-                DirectedDFS directedDFS = new DirectedDFS(result.relationsD, onlyRefs);
-                HashSet<string> marked = directedDFS.getMarked();
-                foreach (string w in pair.Value)
+                foreach (string child in pair.Value)
                 {
-                    if (marked.Contains(w))
+                    HashSet<string> roots = result.reversedRelationD.getAdjForV(child);
+                    if (roots.Count > 1)
                     {
-                        return false;
+                        checkResult = false;
+                        Console.WriteLine("Problem with class: " + child);
                     }
                 }
 
             }
 
-            return true;
+            return checkResult;
         }
     }
 }
